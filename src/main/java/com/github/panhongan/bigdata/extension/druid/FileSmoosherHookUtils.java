@@ -44,7 +44,7 @@ public class FileSmoosherHookUtils {
                     "Map<String, MetadataExt> internalFilesExtMap = new TreeMap<>();" +
                     "for (Map.Entry<String, Metadata> entry : internalFiles.entrySet()) {" +
                         "internalFilesExtMap.put(entry.getKey(), MetadataExt.toMetadataExt(entry.getValue()));" +
-                    "}" +
+                    "};" +
                     FileSmoosherHookUtils.class.getName() + ".close(completedFiles, filesInProcess, currOut, baseDir, maxChunkSize, outFiles, internalFilesExtMap);" +
             "}");
 
@@ -105,6 +105,6 @@ public class FileSmoosherHookUtils {
             }
         }
 
-        LOGGER.info("Write meta file succeed: {}",metaFile.getName());
+        LOGGER.info("Write meta file succeed: {}", metaFile.getName());
     }
 }
