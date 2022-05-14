@@ -116,6 +116,6 @@ public class FileSmoosherHookUtils {
             }
         }
 
-        LOGGER.info("Write meta file succeed: {}", metaFile.getName());
+        LOGGER.info("Write meta file succeed: {}", metaFile.getAbsolutePath());
     }
 }
