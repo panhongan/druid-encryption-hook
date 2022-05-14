@@ -104,5 +104,7 @@ public class FileSmoosherHookUtils {
                 out.write("\n");
             }
         }
+
+        LOGGER.info("Write meta file succeed: {}",metaFile.getName());
     }
 }
