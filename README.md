@@ -1,0 +1,1 @@
+# druid-encryption-hook
