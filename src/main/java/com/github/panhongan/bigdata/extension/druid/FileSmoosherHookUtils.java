@@ -40,13 +40,20 @@ public class FileSmoosherHookUtils {
             CtClass ctClass = classPool.get(FILE_SMOOSHER_CLASS_BY_DOT);
             CtMethod ctMethod = ctClass.getDeclaredMethod(FILE_SMOOSHER_TARGET_METHOD);
 
-            ctMethod.setBody("{" +
-                    "Map<String, MetadataExt> internalFilesExtMap = new TreeMap<>();" +
-                    "for (Map.Entry<String, Metadata> entry : internalFiles.entrySet()) {" +
-                        "internalFilesExtMap.put(entry.getKey(), MetadataExt.toMetadataExt(entry.getValue()));" +
-                    "};" +
-                    FileSmoosherHookUtils.class.getName() + ".close(completedFiles, filesInProcess, currOut, baseDir, maxChunkSize, outFiles, internalFilesExtMap);" +
-            "}");
+            String body = "{\n" +
+                    "java.util.Map/*<String, org.apache.druid.java.util.common.io.smoosh.MetadataExt>*/ internalFilesExtMap = new java.util.TreeMap/*<>*/();\n" +
+                    "java.util.Set s = internalFiles.entrySet();\n" +
+                    "java.util.Iterator it = s.iterator();\n" +
+                    "while (it.hasNext()) {\n" +
+                    "    java.util.Map.Entry entry = (java.util.Map.Entry) it.next();\n" +
+                    "    internalFilesExtMap.put(entry.getKey(), " + FileSmoosherHookUtils.class.getName() + ".toMetadataExt(entry.getValue()));\n" +
+                    "}\n" +
+                    FileSmoosherHookUtils.class.getName() + ".close(completedFiles, filesInProcess, currOut, baseDir, maxChunkSize, outFiles, internalFilesExtMap);\n" +
+            "}";
+
+            LOGGER.info("New method body for FileSmoosher::close() :\n{}", body);
+
+            ctMethod.setBody(body);
 
             return ctClass.toBytecode();
         } catch (Throwable t) {
@@ -56,13 +63,17 @@ public class FileSmoosherHookUtils {
         return classfileBuffer;
     }
 
+    public static MetadataExt toMetadataExt(Object metadataObj) {
+        return MetadataExt.toMetadataExt(metadataObj);
+    }
+
     public static void close(final List<File> completedFiles,
                              final List<File> filesInProcess,
                              final FileSmoosher.Outer currOut,
                              final File baseDir,
                              int maxChunkSize,
                              final List<File> outFiles,
-                             final Map<String, MetadataExt> internalFilesExtMap) throws IOException {
+                             final Map<Object, Object> internalFilesExtMap) throws IOException {
         if (!completedFiles.isEmpty() || !filesInProcess.isEmpty()) {
             for (File file : completedFiles) {
                 if (!file.delete()) {
@@ -91,8 +102,8 @@ public class FileSmoosherHookUtils {
             out.write(StringUtils.format("v1,%d,%d", maxChunkSize, outFiles.size()));
             out.write("\n");
 
-            for (Map.Entry<String, MetadataExt> entry : internalFilesExtMap.entrySet()) {
-                final MetadataExt metadata = entry.getValue();
+            for (Map.Entry<Object, Object> entry : internalFilesExtMap.entrySet()) {
+                final MetadataExt metadata = (MetadataExt) entry.getValue();
                 out.write(
                         JOINER.join(
                                 entry.getKey(),

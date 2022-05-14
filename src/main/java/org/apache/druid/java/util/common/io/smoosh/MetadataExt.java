@@ -6,7 +6,8 @@ public class MetadataExt extends Metadata {
         super(fileNum, startOffset, endOffset);
     }
 
-    public static MetadataExt toMetadataExt(Metadata metadata) {
+    public static MetadataExt toMetadataExt(Object metadataObj) {
+        Metadata metadata = (Metadata) metadataObj;
         return new MetadataExt(metadata.getFileNum(), metadata.getStartOffset(), metadata.getEndOffset());
     }
 }
