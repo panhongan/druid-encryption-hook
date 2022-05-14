@@ -11,8 +11,9 @@ import java.util.function.Function;
 public class DruidFileEncryptionTransformer implements ClassFileTransformer {
 
     private static Map<String, Function<byte[], byte[]>> hookMap = new HashMap<String, Function<byte[], byte[]>>() {{
-        put(KafkaTaskHookUtils.KAFKA_TASK_RUNNER_TARGET_CLASS_BY_SLASH, KafkaTaskHookUtils::addKafkaTaskRunnerHook);
-        put(FileSmoosherHookUtils.FILE_SMOOSHER_CLASS_BY_SLASH, FileSmoosherHookUtils::addFileSmoosherHook);
+        put(KafkaTaskHook.KAFKA_TASK_RUNNER_TARGET_CLASS_BY_SLASH, KafkaTaskHook::addKafkaTaskRunnerHook);
+        put(FileSmoosherHook.FILE_SMOOSHER_CLASS_BY_SLASH, FileSmoosherHook::addFileSmoosherHook);
+        put(SmooshedFileMapperHook.SMOOSHED_FILE_MAPPER_CLASS_BY_SLASH, SmooshedFileMapperHook::addSmooshedFileMapperHook);
     }};
 
     @Override

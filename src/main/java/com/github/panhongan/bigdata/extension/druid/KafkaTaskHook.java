@@ -9,19 +9,19 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
-public class KafkaTaskHookUtils {
+public class KafkaTaskHook {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTaskHookUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTaskHook.class);
 
     public static final String KAFKA_TASK_RUNNER_TARGET_CLASS_BY_DOT = "org.apache.druid.indexing.kafka.IncrementalPublishingKafkaIndexTaskRunner";
 
     public static final String KAFKA_TASK_RUNNER_TARGET_CLASS_BY_SLASH = KAFKA_TASK_RUNNER_TARGET_CLASS_BY_DOT.replace('.', '/');
 
-    private static final String CONTEXT_ATTR_NEED_ENCRYPTION = "druid.need.encryption";
+    private static final String CONTEXT_ATTR_NEED_ENCRYPTION = "druid.enable.encryption";
 
-    private static boolean needEncryption = false;
+    public static boolean enableEncryption = false;
 
-    private static boolean enableHook = false;
+    public static boolean enableHook = false;
 
     public static byte[] addKafkaTaskRunnerHook(byte[] classfileBuffer) {
         try {
@@ -29,7 +29,7 @@ public class KafkaTaskHookUtils {
             CtClass ctClass = classPool.get(KAFKA_TASK_RUNNER_TARGET_CLASS_BY_DOT);
             CtConstructor ctMethod = ctClass.getDeclaredConstructors()[0];
 
-            ctMethod.insertAfter(KafkaTaskHookUtils.class.getName() + ".hookKafkaTaskRunnerFunc($1);");
+            ctMethod.insertAfter(KafkaTaskHook.class.getName() + ".hookKafkaTaskRunnerFunc($1);");
 
             return ctClass.toBytecode();
         } catch (Throwable t) {
@@ -50,8 +50,8 @@ public class KafkaTaskHookUtils {
                 KafkaIndexTask kafkaIndexTask = (KafkaIndexTask) paramValue;
 
                 // CONTEXT_DIMENSION_KEY
-                needEncryption = kafkaIndexTask.getContextValue(CONTEXT_ATTR_NEED_ENCRYPTION);
-                LOGGER.info(CONTEXT_ATTR_NEED_ENCRYPTION + " = " + needEncryption);
+                enableEncryption = kafkaIndexTask.getContextValue(CONTEXT_ATTR_NEED_ENCRYPTION);
+                LOGGER.info("Context attribute: {} = {}", CONTEXT_ATTR_NEED_ENCRYPTION, enableEncryption);
 
                 enableHook = true;
             } else {
@@ -62,11 +62,7 @@ public class KafkaTaskHookUtils {
         }
     }
 
-    public static boolean isHookEnabled() {
-        return enableHook;
-    }
-
-    public static boolean isNeedEncryption() {
-        return needEncryption;
+    public static boolean canEncrypt() {
+        return enableHook && enableEncryption;
     }
 }

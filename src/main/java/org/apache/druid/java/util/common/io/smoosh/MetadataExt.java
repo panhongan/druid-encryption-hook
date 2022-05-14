@@ -2,7 +2,7 @@ package org.apache.druid.java.util.common.io.smoosh;
 
 public class MetadataExt extends Metadata {
 
-    private MetadataExt(int fileNum, int startOffset, int endOffset) {
+    public MetadataExt(int fileNum, int startOffset, int endOffset) {
         super(fileNum, startOffset, endOffset);
     }
 
