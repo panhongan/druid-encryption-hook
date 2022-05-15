@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import javassist.ClassPool;
 import javassist.CtClass;
+import javassist.CtConstructor;
 import javassist.CtMethod;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
@@ -38,22 +39,34 @@ public class SmooshedFileMapperHook {
         try {
             ClassPool classPool = ClassPool.getDefault();
             CtClass ctClass = classPool.get(SMOOSHED_FILE_MAPPER_CLASS_BY_DOT);
-            CtMethod ctMethod = ctClass.getDeclaredMethod(SMOOSHED_FILE_MAPPER_TARGET_METHOD);
+
+            /*
+            public SmooshedFileMapper(final List<File>, final Map<String, Metadata>, int) { }
+             */
+            CtConstructor constructor = new CtConstructor(
+                    new CtClass[]{
+                            classPool.get(List.class.getName()),
+                            classPool.get(Map.class.getName()),
+                            CtClass.intType
+                    },
+                    ctClass);
+
+            constructor.setBody("{ " +
+                    "$0.outFiles = $1;\n" +
+                    "$0.internalFiles = $2; " +
+                    "$0.buffersList = new java.util.ArrayList();\n" +
+                    "}");
+
+            ctClass.addConstructor(constructor);
 
             String body = "{\n" +
                     "org.apache.druid.java.util.common.Pair pair = " + SmooshedFileMapperHook.class.getName() + ".load($1);\n" +
-                    //"java.util.Map/*<String, org.apache.druid.java.util.common.io.smoosh.Metadata>*/ internalFilesMap = new java.util.TreeMap/*<>*/();\n" +
-                    //"java.util.Set s = pair.rhs.entrySet();\n" +
-                    //"java.util.Iterator it = s.iterator();\n" +
-                    //"while (it.hasNext()) {\n" +
-                    //"    java.util.Map.Entry entry = (java.util.Map.Entry) it.next();\n" +
-                    //"    internalFilesMap.put(entry.getKey(), " + SmooshedFileMapperHook.class.getName() + ".toMetadataExt(entry.getValue()));\n" +
-                    //"}\n" +
-                    "return new org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper(pair.lhs, pair.rhs);\n" +
+                    "return new org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper((java.util.List) pair.lhs, (java.util.Map) pair.rhs, 0);\n" +
                     "}";
 
             LOGGER.info("New method body for SmooshedFileMapper::load() :\n{}", body);
 
+            CtMethod ctMethod = ctClass.getDeclaredMethod(SMOOSHED_FILE_MAPPER_TARGET_METHOD);
             ctMethod.setBody(body);
 
             return ctClass.toBytecode();
@@ -66,7 +79,6 @@ public class SmooshedFileMapperHook {
 
     public static Pair<List<File>, Map<String, MetadataExt>> load(final File baseDir) throws IOException {
         File metaFile = FileSmoosherExt.metaFile(baseDir);
-
         InputStream inputStream = new FileInputStream(metaFile);
 
         if (FileSmoosherHook.encryptionMarkFileExists(baseDir)) {
@@ -108,6 +120,8 @@ public class SmooshedFileMapperHook {
                         new MetadataExt(Integer.parseInt(splits[1]), Integer.parseInt(splits[2]), Integer.parseInt(splits[3]))
                 );
             }
+
+            LOGGER.info("Load persist dir succeed: {}", baseDir);
 
             return Pair.of(outFiles, internalFiles);
         }

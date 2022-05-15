@@ -10,4 +10,9 @@ public class MetadataExt extends Metadata {
         Metadata metadata = (Metadata) metadataObj;
         return new MetadataExt(metadata.getFileNum(), metadata.getStartOffset(), metadata.getEndOffset());
     }
+
+    @Override
+    public String toString() {
+        return "MetadataExt(" + this.getFileNum() + "," + this.getStartOffset() + "," + this.getEndOffset() + ")";
+    }
 }

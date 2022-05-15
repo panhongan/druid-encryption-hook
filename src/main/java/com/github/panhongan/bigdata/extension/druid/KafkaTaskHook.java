@@ -21,7 +21,7 @@ public class KafkaTaskHook {
 
     public static boolean enableEncryption = false;
 
-    public static boolean enableHook = false;
+    public static boolean kafkaTaskHookInitialized = false;
 
     public static byte[] addKafkaTaskRunnerHook(byte[] classfileBuffer) {
         try {
@@ -48,12 +48,18 @@ public class KafkaTaskHook {
         try {
             if (paramValue instanceof KafkaIndexTask) {
                 KafkaIndexTask kafkaIndexTask = (KafkaIndexTask) paramValue;
+                LOGGER.info("hook task: {}", kafkaIndexTask.getId());
 
                 // CONTEXT_DIMENSION_KEY
-                enableEncryption = kafkaIndexTask.getContextValue(CONTEXT_ATTR_NEED_ENCRYPTION);
-                LOGGER.info("Context attribute: {} = {}", CONTEXT_ATTR_NEED_ENCRYPTION, enableEncryption);
+                Object enableEncryptionObj = kafkaIndexTask.getContextValue(CONTEXT_ATTR_NEED_ENCRYPTION);
+                if (Objects.nonNull(enableEncryptionObj)) {
+                    enableEncryption = (Boolean) enableEncryptionObj;
+                    LOGGER.info("Context attribute: {} = {}", CONTEXT_ATTR_NEED_ENCRYPTION, enableEncryption);
+                } else {
+                    LOGGER.info("Context attribute not set: {}", CONTEXT_ATTR_NEED_ENCRYPTION);
+                }
 
-                enableHook = true;
+                kafkaTaskHookInitialized = true;
             } else {
                 LOGGER.error("Unexpected parameter");
             }
@@ -63,6 +69,6 @@ public class KafkaTaskHook {
     }
 
     public static boolean canEncrypt() {
-        return enableHook && enableEncryption;
+        return kafkaTaskHookInitialized && enableEncryption;
     }
 }

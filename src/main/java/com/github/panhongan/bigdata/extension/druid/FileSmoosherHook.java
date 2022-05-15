@@ -174,7 +174,7 @@ public class FileSmoosherHook {
         map.put("version", new MetadataExt(0, 17710478, 17712366));
         map.put("videoSessionJson", new MetadataExt(0, 17712366, 349393489));
 
-        KafkaTaskHook.enableHook = true;
+        KafkaTaskHook.kafkaTaskHookInitialized = true;
         KafkaTaskHook.enableEncryption = true;
 
         writeMetaSmooshFile(baseDir, Integer.MAX_VALUE, 1, map);
