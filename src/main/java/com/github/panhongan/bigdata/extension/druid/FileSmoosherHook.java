@@ -3,7 +3,9 @@ package com.github.panhongan.bigdata.extension.druid;
 import com.google.common.base.Joiner;
 import javassist.ClassPool;
 import javassist.CtClass;
+import javassist.CtConstructor;
 import javassist.CtMethod;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.smoosh.FileSmoosher;
@@ -25,6 +27,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.ByteBuffer;
+import java.nio.channels.GatheringByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +43,14 @@ public class FileSmoosherHook {
     public static final String FILE_SMOOSHER_CLASS_BY_SLASH = FILE_SMOOSHER_CLASS_BY_DOT.replace('.', '/');
 
     public static final String FILE_SMOOSHER_TARGET_METHOD = "close";
+
+    public static final String FILE_SMOOSHER_OUTER_CLASS_BY_DOT = "org.apache.druid.java.util.common.io.smoosh.FileSmoosher.Outer";
+
+    public static final String FILE_SMOOSHER_OUTER_CLASS_BY_SLASH = FILE_SMOOSHER_OUTER_CLASS_BY_DOT.replace('.', '/');
+
+    public static int getEncryptionPrefixLen() throws IOException {
+        return generateEncryptedPrefix().length;
+    }
 
     public static byte[] addFileSmoosherHook(byte[] classfileBuffer) {
         try {
@@ -69,11 +81,35 @@ public class FileSmoosherHook {
         return classfileBuffer;
     }
 
+    public static byte[] addFileSmoosherOuterHook(byte[] classfileBuffer) {
+        try {
+            ClassPool classPool = ClassPool.getDefault();
+            CtClass ctClass = classPool.get(FILE_SMOOSHER_OUTER_CLASS_BY_DOT);
+
+            // constructor
+            CtConstructor ctConstructor = ctClass.getDeclaredConstructor(new CtClass[] {CtClass.intType, classPool.get(File.class.getName()), CtClass.intType});
+
+            String insertAfterCode = "{\n" +
+                    FileSmoosherHook.class.getName() + ".writeEncryptedPrefix($0.channel);\n" +
+                    "}";
+
+            LOGGER.info("insertAfter code for FileSmoosher.Outer::Outer() :\n{}", insertAfterCode);
+
+            ctConstructor.insertAfter(insertAfterCode);
+
+            return ctClass.toBytecode();
+        } catch (Throwable t) {
+            LOGGER.error("", t);
+        }
+
+        return classfileBuffer;
+    }
+
     public static MetadataExt toMetadataExt(Object metadataObj) {
         return MetadataExt.toMetadataExt(metadataObj);
     }
 
-    public static void close(final List<File> completedFiles,
+    private static void close(final List<File> completedFiles,
                              final List<File> filesInProcess,
                              final FileSmoosher.Outer currOut,
                              final File baseDir,
@@ -104,15 +140,17 @@ public class FileSmoosherHook {
         writeMetaSmooshFile(baseDir, maxChunkSize, outFiles.size(), internalFilesExtMap);
     }
 
-    protected static void writeMetaSmooshFile(final File baseDir,
+    private static void writeMetaSmooshFile(final File baseDir,
                                               int maxChunkSize,
                                               int fileNum,
                                               final Map<Object, Object> internalFilesExtMap) throws IOException {
-        File metaFile = FileSmoosherExt.metaFile(baseDir);
+        int encryptionPrefixLen = 0;
 
+        File metaFile = FileSmoosherExt.metaFile(baseDir);
         OutputStream outputStream = new FileOutputStream(metaFile);
-        if (KafkaTaskHook.canEncrypt()) {
+        if (needEncryption()) {
             outputStream = new CipherOutputStream(outputStream, AESUtils.getEncryptCipher());
+            encryptionPrefixLen = getEncryptionPrefixLen();
         }
 
         try (Writer out = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8))) {
@@ -125,8 +163,8 @@ public class FileSmoosherHook {
                         Joiner.on(",").join(
                                 entry.getKey(),
                                 metadata.getFileNum(),
-                                metadata.getStartOffset(),
-                                metadata.getEndOffset()
+                                metadata.getStartOffset() - encryptionPrefixLen,
+                                metadata.getEndOffset() - encryptionPrefixLen
                         )
                 );
                 out.write("\n");
@@ -136,12 +174,12 @@ public class FileSmoosherHook {
         LOGGER.info("Write meta file succeed: {}", metaFile.getAbsolutePath());
 
         // create encryption mark file
-        if (KafkaTaskHook.canEncrypt()) {
+        if (needEncryption()) {
             createEncryptionMarkFile(baseDir);
         }
     }
 
-    public static void createEncryptionMarkFile(final File baseDir) throws IOException {
+    private static void createEncryptionMarkFile(final File baseDir) throws IOException {
         File encryptionMarkFile = FileSmoosherExt.encryptionMarkFile(baseDir);
         try (FileOutputStream markFileOutputStream = new FileOutputStream(encryptionMarkFile)) {
             // write nothing
@@ -153,6 +191,24 @@ public class FileSmoosherHook {
     public static boolean encryptionMarkFileExists(final File baseDir) {
         File encryptionMarkFile = FileSmoosherExt.encryptionMarkFile(baseDir);
         return encryptionMarkFile.exists();
+    }
+
+    private static boolean needEncryption() {
+        String clusterName = DruidFileEncryptionAgent.AgentArg.getInstance().getClusterName();
+        EncryptionConfig encryptionConfig = EncryptionConfig.getEncryptionConfig(clusterName);
+        return encryptionConfig.needEncryption();
+    }
+
+    private static byte[] generateEncryptedPrefix() throws IOException {
+        String md5 = DigestUtils.md5Hex(String.valueOf(System.currentTimeMillis())); // 32 bytes
+        return AESUtils.encrypt(md5.getBytes(StandardCharsets.UTF_8)); // 32 bytes
+    }
+
+    public static void writeEncryptedPrefix(final GatheringByteChannel channel) throws Exception {
+        if (needEncryption()) {
+            byte[] output = generateEncryptedPrefix();
+            channel.write(ByteBuffer.wrap(output));
+        }
     }
 
     public static void main(String[] args) throws IOException {
@@ -173,9 +229,6 @@ public class FileSmoosherHook {
         map.put("sessionStartTimeMs", new MetadataExt(0, 12275470, 17710478));
         map.put("version", new MetadataExt(0, 17710478, 17712366));
         map.put("videoSessionJson", new MetadataExt(0, 17712366, 349393489));
-
-        KafkaTaskHook.kafkaTaskHookInitialized = true;
-        KafkaTaskHook.enableEncryption = true;
 
         writeMetaSmooshFile(baseDir, Integer.MAX_VALUE, 1, map);
 

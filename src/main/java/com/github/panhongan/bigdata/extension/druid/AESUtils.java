@@ -34,4 +34,13 @@ public class AESUtils {
             throw new IOException(e);
         }
     }
+
+    public static byte[] encrypt(final byte[] input) throws IOException {
+        try {
+            Cipher cipher = getEncryptCipher();
+            return cipher.doFinal(input);
+        } catch (Exception e) {
+            throw  new IOException(e);
+        }
+    }
 }

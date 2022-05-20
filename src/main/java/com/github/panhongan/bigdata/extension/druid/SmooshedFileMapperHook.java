@@ -33,7 +33,7 @@ public class SmooshedFileMapperHook {
 
     public static final String SMOOSHED_FILE_MAPPER_CLASS_BY_SLASH = SMOOSHED_FILE_MAPPER_CLASS_BY_DOT.replace('.', '/');
 
-    public static final String SMOOSHED_FILE_MAPPER_TARGET_METHOD = "load";
+    public static final String SMOOSHED_FILE_MAPPER_LOAD_METHOD = "load";
 
     public static byte[] addSmooshedFileMapperHook(byte[] classfileBuffer) {
         try {
@@ -59,6 +59,7 @@ public class SmooshedFileMapperHook {
 
             ctClass.addConstructor(constructor);
 
+            // public void static load(File baseDir)
             String body = "{\n" +
                     "org.apache.druid.java.util.common.Pair pair = " + SmooshedFileMapperHook.class.getName() + ".load($1);\n" +
                     "return new org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper((java.util.List) pair.lhs, (java.util.Map) pair.rhs, 0);\n" +
@@ -66,7 +67,7 @@ public class SmooshedFileMapperHook {
 
             LOGGER.info("New method body for SmooshedFileMapper::load() :\n{}", body);
 
-            CtMethod ctMethod = ctClass.getDeclaredMethod(SMOOSHED_FILE_MAPPER_TARGET_METHOD);
+            CtMethod ctMethod = ctClass.getDeclaredMethod(SMOOSHED_FILE_MAPPER_LOAD_METHOD);
             ctMethod.setBody(body);
 
             return ctClass.toBytecode();
@@ -78,11 +79,13 @@ public class SmooshedFileMapperHook {
     }
 
     public static Pair<List<File>, Map<String, MetadataExt>> load(final File baseDir) throws IOException {
+        int encryptionPrefixLen = 0;
+
         File metaFile = FileSmoosherExt.metaFile(baseDir);
         InputStream inputStream = new FileInputStream(metaFile);
-
         if (FileSmoosherHook.encryptionMarkFileExists(baseDir)) {
             inputStream = new CipherInputStream(inputStream, AESUtils.getDecryptCipher());
+            encryptionPrefixLen = FileSmoosherHook.getEncryptionPrefixLen();
         }
 
         BufferedReader in = null;
@@ -117,7 +120,7 @@ public class SmooshedFileMapperHook {
                 }
                 internalFiles.put(
                         splits[0],
-                        new MetadataExt(Integer.parseInt(splits[1]), Integer.parseInt(splits[2]), Integer.parseInt(splits[3]))
+                        new MetadataExt(Integer.parseInt(splits[1]), Integer.parseInt(splits[2]) + encryptionPrefixLen, Integer.parseInt(splits[3]) + encryptionPrefixLen)
                 );
             }
 
