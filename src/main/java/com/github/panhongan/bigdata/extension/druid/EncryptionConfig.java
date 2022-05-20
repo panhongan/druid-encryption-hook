@@ -25,6 +25,7 @@ public class EncryptionConfig {
     private static Map<String, EncryptionConfig> encryptionConfigMap = new HashMap<>();
 
     static {
+        System.out.println(EncryptionConfig.class.getClassLoader().getResource("").getPath());
         parseConfigFile("cluster1");
         parseConfigFile("cluster2");
     }
