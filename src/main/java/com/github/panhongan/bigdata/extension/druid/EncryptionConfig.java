@@ -6,6 +6,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
@@ -25,9 +26,15 @@ public class EncryptionConfig {
     private static Map<String, EncryptionConfig> encryptionConfigMap = new HashMap<>();
 
     static {
-        System.out.println(EncryptionConfig.class.getClassLoader().getResource("").getPath());
-        parseConfigFile("cluster1");
-        parseConfigFile("cluster2");
+        String resourcePath = EncryptionConfig.class.getClassLoader().getResource("druid-clusters").getPath();
+        File file = new File(resourcePath);
+        if (file.isDirectory()) {
+            String[] arr = file.list();
+            for (String cluster : arr) {
+                LOGGER.info("druid cluster : {}", cluster);
+                parseConfigFile("druid-clusters/" + cluster);
+            }
+        }
     }
 
     private boolean enableEncryption;
@@ -133,5 +140,9 @@ public class EncryptionConfig {
 
             return PARTIAL_DATASOURCES;
         }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(EncryptionConfig.getEncryptionConfig("test"));
     }
 }
