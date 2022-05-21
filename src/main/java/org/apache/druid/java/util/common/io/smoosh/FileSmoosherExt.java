@@ -22,4 +22,36 @@ public class FileSmoosherExt {
     public static File encryptionMarkFile(File baseDir) {
         return new File(baseDir, ENCRYPTION_MARK_FILE);
     }
+
+    public static String getDatasourceByPersistOrMergePath(final File persistOrMergeDir) {
+        String[] arr = persistOrMergeDir.getAbsolutePath().split("/");
+        String segmentId = arr[arr.length - 2];
+        String datasource = getDatasourceBySegmentId(segmentId);
+        return datasource;
+    }
+
+    public static String getDatasourceBySmooshFilePath(final File smooshFile) {
+        String[] arr = smooshFile.getAbsolutePath().split("/");
+        String segmentId = arr[arr.length - 3];
+        String datasource = getDatasourceBySegmentId(segmentId);
+        return datasource;
+    }
+
+    public static String getDatasourceBySegmentId(String segmentId) {
+        int fromIndex = segmentId.length() - 1;
+        int pos = -1;
+
+        for (int i = 0; i < 3; ++i) {
+            pos = segmentId.lastIndexOf('_', fromIndex);
+            if (pos != -1) {
+                fromIndex = pos - 1;
+            }
+        }
+
+        if (pos != -1) {
+            return segmentId.substring(0, pos);
+        }
+
+        throw new RuntimeException("Invalid segmentId: " + segmentId);
+    }
 }

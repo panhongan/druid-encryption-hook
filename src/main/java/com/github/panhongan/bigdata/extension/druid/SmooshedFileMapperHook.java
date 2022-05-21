@@ -78,6 +78,13 @@ public class SmooshedFileMapperHook {
         return classfileBuffer;
     }
 
+    /**
+     * hook implementation
+     *
+     * @param baseDir
+     * @return
+     * @throws IOException
+     */
     public static Pair<List<File>, Map<String, MetadataExt>> load(final File baseDir) throws IOException {
         int encryptionPrefixLen = 0;
 

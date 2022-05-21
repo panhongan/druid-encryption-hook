@@ -90,7 +90,7 @@ public class FileSmoosherHook {
             CtConstructor ctConstructor = ctClass.getDeclaredConstructor(new CtClass[] {CtClass.intType, classPool.get(File.class.getName()), CtClass.intType});
 
             String insertAfterCode = "{\n" +
-                    FileSmoosherHook.class.getName() + ".writeEncryptedPrefix($0.channel);\n" +
+                    FileSmoosherHook.class.getName() + ".writeEncryptedPrefix($0.outFile, $0.channel);\n" +
                     "}";
 
             LOGGER.info("insertAfter code for FileSmoosher.Outer::Outer() :\n{}", insertAfterCode);
@@ -109,7 +109,19 @@ public class FileSmoosherHook {
         return MetadataExt.toMetadataExt(metadataObj);
     }
 
-    private static void close(final List<File> completedFiles,
+    /**
+     * hook implementation
+     *
+     * @param completedFiles
+     * @param filesInProcess
+     * @param currOut
+     * @param baseDir
+     * @param maxChunkSize
+     * @param outFiles
+     * @param internalFilesExtMap
+     * @throws IOException
+     */
+    public static void close(final List<File> completedFiles,
                              final List<File> filesInProcess,
                              final FileSmoosher.Outer currOut,
                              final File baseDir,
@@ -144,11 +156,12 @@ public class FileSmoosherHook {
                                               int maxChunkSize,
                                               int fileNum,
                                               final Map<Object, Object> internalFilesExtMap) throws IOException {
+        boolean needEncryption = needEncryption(FileSmoosherExt.getDatasourceByPersistOrMergePath(baseDir));
         int encryptionPrefixLen = 0;
 
         File metaFile = FileSmoosherExt.metaFile(baseDir);
         OutputStream outputStream = new FileOutputStream(metaFile);
-        if (needEncryption()) {
+        if (needEncryption) {
             outputStream = new CipherOutputStream(outputStream, AESUtils.getEncryptCipher());
             encryptionPrefixLen = getEncryptionPrefixLen();
         }
@@ -174,7 +187,7 @@ public class FileSmoosherHook {
         LOGGER.info("Write meta file succeed: {}", metaFile.getAbsolutePath());
 
         // create encryption mark file
-        if (needEncryption()) {
+        if (needEncryption) {
             createEncryptionMarkFile(baseDir);
         }
     }
@@ -193,10 +206,11 @@ public class FileSmoosherHook {
         return encryptionMarkFile.exists();
     }
 
-    private static boolean needEncryption() {
+    private static boolean needEncryption(String datasource) throws IOException {
         String clusterName = DruidFileEncryptionAgent.AgentArg.getInstance().getClusterName();
         EncryptionConfig encryptionConfig = EncryptionConfig.getEncryptionConfig(clusterName);
-        return encryptionConfig.needEncryption();
+        LOGGER.info("cluster name: {}, encryption config = {}", clusterName, encryptionConfig);
+        return encryptionConfig.needEncryption(datasource);
     }
 
     private static byte[] generateEncryptedPrefix() throws IOException {
@@ -204,8 +218,16 @@ public class FileSmoosherHook {
         return AESUtils.encrypt(md5.getBytes(StandardCharsets.UTF_8)); // 32 bytes
     }
 
-    public static void writeEncryptedPrefix(final GatheringByteChannel channel) throws Exception {
-        if (needEncryption()) {
+    /**
+     * hook implementation
+     *
+     * @param smooshFile like 00000.smoosh
+     * @param channel
+     * @throws Exception
+     */
+    public static void writeEncryptedPrefix(final File smooshFile, final GatheringByteChannel channel) throws Exception {
+        String datasource = FileSmoosherExt.getDatasourceBySmooshFilePath(smooshFile);
+        if (needEncryption(datasource)) {
             byte[] output = generateEncryptedPrefix();
             channel.write(ByteBuffer.wrap(output));
         }

@@ -61,10 +61,22 @@ public class EncryptionConfig {
         return ImmutableSet.copyOf(this.encryptedDatasources);
     }
 
-    public boolean needEncryption() {
-        return enableEncryption &&
-                (encryptionCoverage == EncryptionCoverage.ALL_DATASOURCES ||
-                  (encryptionCoverage == EncryptionCoverage.PARTIAL_DATASOURCES && CollectionUtils.isNotEmpty(encryptedDatasources)));
+    public boolean needEncryption(String datasource) {
+        if (!enableEncryption) {
+            return false;
+        }
+
+        if (encryptionCoverage == EncryptionCoverage.ALL_DATASOURCES) {
+            return true;
+        }
+
+        if (encryptionCoverage == EncryptionCoverage.PARTIAL_DATASOURCES
+                && CollectionUtils.isNotEmpty(encryptedDatasources)
+                && encryptedDatasources.contains(datasource)) {
+            return true;
+        }
+
+        return false;
     }
 
     @Override
