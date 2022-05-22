@@ -85,7 +85,7 @@ public class EncryptionConfig {
             properties.load(inputStream);
 
             // encryption flag
-            boolean encryptionFlg = Boolean.getBoolean(properties.getProperty("druid.enable.encryption", "false"));
+            boolean encryptionFlg = Boolean.valueOf(properties.getProperty("druid.enable.encryption", "false"));
 
             // datasource
             Set<String> datasourceSet = new HashSet<>();
@@ -122,15 +122,20 @@ public class EncryptionConfig {
         }
 
         public static EncryptionCoverage getEncryptionCoverage(String value) {
-            if (Objects.equals(ALL_DATASOURCES.value, "all")) {
+            if (Objects.equals(ALL_DATASOURCES.value, value)) {
                 return ALL_DATASOURCES;
             }
 
-            if (Objects.equals(NO_DATASOURCES.value, "none")) {
+            if (Objects.equals(NO_DATASOURCES.value, value)) {
                 return NO_DATASOURCES;
             }
 
             return PARTIAL_DATASOURCES;
         }
+    }
+
+    public static void main(String[] args) {
+        EncryptionConfig.loadConfigFile("conf/encryption.properties");
+        System.out.println(EncryptionConfig.getInstance());
     }
 }

@@ -1,5 +1,6 @@
 package com.github.panhongan.bigdata.extension.druid;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,13 +14,16 @@ public class DruidFileEncryptionAgent {
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidFileEncryptionAgent.class);
 
     /**
-     * @param arg cluaster name, eg: iad, pii, timeline
+     * @param arg encryption config file.
+     *            MiddleManager need encryption config file.
+     *            Historical Node not use encryption config file.
      * @param instrumentation
      */
     public static void premain(String arg, Instrumentation instrumentation) {
-        LOGGER.info("encryption config file: {}", arg);
-        System.out.println("encryption config file: " + arg);
-        EncryptionConfig.loadConfigFile(arg);
+        if (StringUtils.isNotEmpty(arg)) {
+            LOGGER.info("encryption config file: {}", arg);
+            EncryptionConfig.loadConfigFile(arg);
+        }
 
         instrumentation.addTransformer(new DruidFileEncryptionTransformer());
     }
