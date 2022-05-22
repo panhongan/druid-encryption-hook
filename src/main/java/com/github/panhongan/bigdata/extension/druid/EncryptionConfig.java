@@ -21,18 +21,22 @@ public class EncryptionConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EncryptionConfig.class);
 
+    private static final String DRUID_CLUSTERS_RESOURCES_BASE_DIR = "druid-clusters";
+
     private static final EncryptionConfig EMPTY_CONFIG = new EncryptionConfig(false, EncryptionCoverage.NO_DATASOURCES, Collections.emptySet());
 
     private static Map<String, EncryptionConfig> encryptionConfigMap = new HashMap<>();
 
     static {
-        String resourcePath = EncryptionConfig.class.getClassLoader().getResource("druid-clusters").getPath();
+        String resourcePath = EncryptionConfig.class.getClassLoader().getResource(DRUID_CLUSTERS_RESOURCES_BASE_DIR).getPath();
         File file = new File(resourcePath);
         if (file.isDirectory()) {
             String[] arr = file.list();
             for (String cluster : arr) {
-                LOGGER.info("druid cluster : {}", cluster);
-                parseConfigFile("druid-clusters/" + cluster);
+                String propertyFile = DRUID_CLUSTERS_RESOURCES_BASE_DIR + "/" + cluster + "/encryption.properties";
+                LOGGER.info("druid cluster: {}, encryption property file: {}", cluster, propertyFile);
+
+                parseConfigFile(cluster, propertyFile);
             }
         }
     }
@@ -91,15 +95,8 @@ public class EncryptionConfig {
         return encryptionConfigMap.getOrDefault(clusterName, EMPTY_CONFIG);
     }
 
-    private static String getResourceFile(String clusterName) {
-        return clusterName + "/encryption.properties";
-    }
-
-    private static void parseConfigFile(String clusterName) {
-        String resourceFile = getResourceFile(clusterName);
-        LOGGER.info("parse resource file: {}", resourceFile);
-
-        try (InputStream inputStream = EncryptionConfig.class.getClassLoader().getResourceAsStream(resourceFile)) {
+    private static void parseConfigFile(String clusterName, String propertyFile) {
+        try (InputStream inputStream = EncryptionConfig.class.getClassLoader().getResourceAsStream(propertyFile)) {
             Properties properties = new Properties();
             properties.load(inputStream);
 
@@ -152,9 +149,5 @@ public class EncryptionConfig {
 
             return PARTIAL_DATASOURCES;
         }
-    }
-
-    public static void main(String[] args) {
-        System.out.println(EncryptionConfig.getEncryptionConfig("test"));
     }
 }
