@@ -207,10 +207,7 @@ public class FileSmoosherHook {
     }
 
     private static boolean needEncryption(String datasource) throws IOException {
-        String clusterName = DruidFileEncryptionAgent.AgentArg.getInstance().getClusterName();
-        EncryptionConfig encryptionConfig = EncryptionConfig.getEncryptionConfig(clusterName);
-        LOGGER.info("cluster name: {}, encryption config = {}", clusterName, encryptionConfig);
-        return encryptionConfig.needEncryption(datasource);
+        return EncryptionConfig.getInstance().needEncryption(datasource);
     }
 
     private static byte[] generateEncryptedPrefix() throws IOException {
@@ -234,7 +231,7 @@ public class FileSmoosherHook {
     }
 
     public static void main(String[] args) throws IOException {
-        File baseDir = new File("/Users/hpan/work/code/panhongan/test-java/druid-encryption-hook/persist");
+        File baseDir = new File("test-java/druid-encryption-hook/persist");
 
         testWriteMetaFile(baseDir);
         testDecryptMetaSmooshFile(baseDir);

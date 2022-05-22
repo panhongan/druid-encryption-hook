@@ -6,13 +6,11 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
@@ -21,31 +19,17 @@ public class EncryptionConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EncryptionConfig.class);
 
-    private static final String DRUID_CLUSTERS_RESOURCES_BASE_DIR = "druid-clusters";
+    private static final EncryptionConfig EMPTY_CONFIG = new EncryptionConfig(false,
+            EncryptionCoverage.NO_DATASOURCES,
+            Collections.emptySet());
 
-    private static final EncryptionConfig EMPTY_CONFIG = new EncryptionConfig(false, EncryptionCoverage.NO_DATASOURCES, Collections.emptySet());
+    private static EncryptionConfig instance = EMPTY_CONFIG;
 
-    private static Map<String, EncryptionConfig> encryptionConfigMap = new HashMap<>();
+    private final boolean enableEncryption;
 
-    static {
-        String resourcePath = EncryptionConfig.class.getClassLoader().getResource(DRUID_CLUSTERS_RESOURCES_BASE_DIR).getPath();
-        File file = new File(resourcePath);
-        if (file.isDirectory()) {
-            String[] arr = file.list();
-            for (String cluster : arr) {
-                String propertyFile = DRUID_CLUSTERS_RESOURCES_BASE_DIR + "/" + cluster + "/encryption.properties";
-                LOGGER.info("druid cluster: {}, encryption property file: {}", cluster, propertyFile);
+    private final EncryptionCoverage encryptionCoverage;
 
-                parseConfigFile(cluster, propertyFile);
-            }
-        }
-    }
-
-    private boolean enableEncryption;
-
-    private EncryptionCoverage encryptionCoverage;
-
-    private Set<String> encryptedDatasources;
+    private final Set<String> encryptedDatasources;
 
     public EncryptionConfig(boolean enableEncryption, EncryptionCoverage encryptionCoverage, Set<String> encryptedDatasources) {
         this.enableEncryption = enableEncryption;
@@ -91,12 +75,12 @@ public class EncryptionConfig {
                 + this.encryptedDatasources + ")";
     }
 
-    public static EncryptionConfig getEncryptionConfig(String clusterName) {
-        return encryptionConfigMap.getOrDefault(clusterName, EMPTY_CONFIG);
+    public static EncryptionConfig getInstance() {
+        return instance;
     }
 
-    private static void parseConfigFile(String clusterName, String propertyFile) {
-        try (InputStream inputStream = EncryptionConfig.class.getClassLoader().getResourceAsStream(propertyFile)) {
+    public static void loadConfigFile(String confFile) {
+        try (InputStream inputStream = new FileInputStream(confFile)) {
             Properties properties = new Properties();
             properties.load(inputStream);
 
@@ -117,14 +101,13 @@ public class EncryptionConfig {
                 }
             }
 
-            EncryptionConfig encryptionConfig = new EncryptionConfig(encryptionFlg, coverage, datasourceSet);
-            encryptionConfigMap.put(clusterName, encryptionConfig);
-
-            LOGGER.info("cluster = {}, encryption config = {}", clusterName, encryptionConfig);
+            instance = new EncryptionConfig(encryptionFlg, coverage, datasourceSet);
         } catch (IOException e) {
             LOGGER.error("", e);
             System.exit(1);
         }
+
+        LOGGER.info("Encryption config = {}", instance);
     }
 
     public enum EncryptionCoverage {

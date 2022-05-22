@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.instrument.Instrumentation;
 
+/**
+ * -javaagent:xxx/xxx/druid-encryption-hook-1.0.jar:xxx/xxx/encryption.properties
+ */
 public class DruidFileEncryptionAgent {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidFileEncryptionAgent.class);
@@ -14,30 +17,10 @@ public class DruidFileEncryptionAgent {
      * @param instrumentation
      */
     public static void premain(String arg, Instrumentation instrumentation) {
-        LOGGER.info("cluster name: {}", arg);
-        AgentArg.getInstance().setClusterName(arg);
+        LOGGER.info("encryption config file: {}", arg);
+        System.out.println("encryption config file: " + arg);
+        EncryptionConfig.loadConfigFile(arg);
 
         instrumentation.addTransformer(new DruidFileEncryptionTransformer());
-    }
-
-    public static class AgentArg {
-
-        private static AgentArg INSTANCE = new AgentArg();
-
-        private String clusterName;
-
-        private AgentArg() { }
-
-        public String getClusterName() {
-            return clusterName;
-        }
-
-        public void setClusterName(String clusterName) {
-            this.clusterName = clusterName;
-        }
-
-        public static AgentArg getInstance() {
-            return INSTANCE;
-        }
     }
 }
