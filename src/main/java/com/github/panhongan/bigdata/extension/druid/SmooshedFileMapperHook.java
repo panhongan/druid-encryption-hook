@@ -134,8 +134,7 @@ public class SmooshedFileMapperHook {
             LOGGER.info("Load persist dir succeed: {}", baseDir);
 
             return Pair.of(outFiles, internalFiles);
-        }
-        finally {
+        } finally {
             Closeables.close(in, false);
         }
     }
